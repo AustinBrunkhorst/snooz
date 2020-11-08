@@ -20,3 +20,19 @@ Component to integrate with the [SNOOZ][snooz] white noise sound machine as a fa
 [hacs]: https://github.com/custom-components/hacs
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
 [license-shield]: https://img.shields.io/github/license/AustinBrunkhorst/snooz.svg?style=for-the-badge
+
+## Configuration
+
+### Example configuration.yaml
+```yaml
+fan:
+  - platform: snooz
+    name: My Snooz
+    address: AA:BB:CC:DD:EE:FF
+```
+
+### Options
+key | description
+:--- | :---
+**address (Required)** | Bluetooth MAC address of the SNOOZ device
+**name (Optional)** | Custom name for the fan entity. Defaults to `Snooz`
