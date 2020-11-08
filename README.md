@@ -8,8 +8,11 @@ Component to integrate with the [SNOOZ][snooz] white noise sound machine as a fa
 
 ![SNOOZ Logo][snoozlogo]
 
+![SNOOZ Device][snoozdevice]
+
 [snooz]: https://getsnooz.com/
 [snoozlogo]: snooz.png
+[snoozdevice]: device.jpg
 [buymecoffee]: https://www.buymeacoffee.com/abrunkhorst
 [buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-blue.svg?style=for-the-badge
 [commits-shield]: https://img.shields.io/github/commit-activity/y/AustinBrunkhorst/snooz.svg?style=for-the-badge
