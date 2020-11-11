@@ -48,6 +48,10 @@ key | description
 ## Screenshots
 ![Screenshot of home assistant showing a power toggle and fan speed dropdown][screenshot]
 
+## Feature roadmap
+- [ ] UI based integration configuration
+- [ ] Device discovery
+
 [snooz]: https://getsnooz.com/
 [snoozlogo]: snooz.png
 [snoozdevice]: device.jpg
