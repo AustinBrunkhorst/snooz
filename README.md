@@ -1,11 +1,9 @@
-# SNOOZ Fan Entity
+# ![SNOOZ logo][snoozlogo] for Home Assistant
 [![License][license-shield]](LICENSE)
 [![Home Assistant Component Store][hacsbadge]][hacs]
 [![Gift a coffee][giftacoffeebadge]][giftacoffee]
 
 Component to integrate with the [SNOOZ][snooz] white noise sound machine as a fan entity on Home Assistant.
-
-![SNOOZ logo][snoozlogo]
 
 ![Image of a SNOOZ device][snoozdevice]
 
@@ -39,6 +37,7 @@ key | description
 
 [![Gift a coffee][giftacoffeebadgeblue]][giftacoffee]
 
+## Screenshots
 ![Screenshot of home assistant showing a power toggle and fan speed dropdown][screenshot]
 
 [snooz]: https://getsnooz.com/
