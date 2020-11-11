@@ -13,11 +13,19 @@ Component to integrate with the [SNOOZ][snooz] white noise sound machine as a fa
   - Tested on Raspberry Pi 4 w/ Home Assistant **0.117**
   
 ### HACS
-1. Copy `custom_components/snooz/*` to your `custom_components` folder in Home Assistant
-2. Add a fan to your `configuration.yaml` with the platform `snooz` and MAC address of your SNOOZ device
+1. Copy `custom_components/snooz/*` to `custom_components/snooz` in your Home Assistant configuration directory
+2. Add a `fan` entry to your `configuration.yaml` with the platform `snooz` and MAC address of your SNOOZ device
 2. Restart Home Assistant
 
 New to HACS? [Learn more][hacsinstall]
+
+### Snooz MAC Address
+SNOOZ broadcasts on bluetooth with the name `Snooz-FFFF` where `FFFF` is the last 2 bytes in its MAC address. 
+
+- You should be able to inspect the full address once you connect to it on Android or iOS (via the Bluetooth Devices system menu).
+- If you are adventurous, the linux command [bluetoothctl][bluetoothctl] can be used to find a deviced similar to `Snooz-FFFF`.
+
+***Note**: Two devices are broadcasted under a name like `Snooz-FFFF`. One of them does not work properly, so you may need to try both.*
 
 ## Configuration
 
@@ -55,3 +63,4 @@ key | description
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat
 [hacsfolder]: https://github.com/AustinBrunkhorst/snooz/tree/master/custom_components/snooz
 [license-shield]: https://img.shields.io/github/license/AustinBrunkhorst/snooz.svg?style=flat
+[bluetoothctl]: https://www.linux-magazine.com/Issues/2017/197/Command-Line-bluetoothctl
