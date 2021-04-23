@@ -10,7 +10,7 @@ Component to integrate with the [SNOOZ][snooz] white noise sound machine as a fa
 ## Installation
 ### Requirements
 [Home Assistant][homeassistant] host that supports Bluetooth Low Energy
-  - Tested on Raspberry Pi 4 w/ Home Assistant **0.117**
+  - Tested on Raspberry Pi 4 w/ Home Assistant **2021.4.6**
   
 ### HACS
 1. Copy `custom_components/snooz/*` to `custom_components/snooz` in your Home Assistant configuration directory
