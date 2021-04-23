@@ -88,6 +88,10 @@ class SnoozFan(FanEntity):
         return False
 
     @property
+    def speed_count(self) -> int:
+        return 100
+
+    @property
     def percentage(self) -> int:
         return self._device.level * 10
 
@@ -116,4 +120,4 @@ class SnoozFan(FanEntity):
         self._device.queue_state(write_state)
 
     def _set_device_percentage(self, percentage: int):
-        self._device.set_level(int(percentage / 10))
+        self._device.set_percentage(percentage)

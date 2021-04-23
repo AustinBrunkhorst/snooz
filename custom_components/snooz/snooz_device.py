@@ -74,11 +74,11 @@ class SnoozeDevice():
     def set_on(self, on: bool):
         self._write_state(COMMAND_TURN_ON if on else COMMAND_TURN_OFF)
 
-    def set_level(self, level: int):
-        if level < 1 or level > 10:
-            raise Exception("Invalid level {}".format(level))
+    def set_percentage(self, percentage: int):
+        if percentage < 0 or percentage > 100:
+            raise Exception("Invalid percentage {}".format(percentage))
 
-        self._write_state([0x01, level * 10])
+        self._write_state([0x01, percentage])
 
     def queue_state(self, state_writer: callable):
         with self._state_lock:
