@@ -1,25 +1,17 @@
 import asyncio
 import logging
-from threading import RLock
 from datetime import datetime
-from bluepy import btle
+from threading import RLock
 
-from .const import (
-    DOMAIN,
-    CONF_ADDRESS,
-    SNOOZ_SERVICE_UUID,
-    READ_STATE_UUID,
-    WRITE_STATE_UUID,
-    CONNECTION_SEQUENCE,
-    STATE_UPDATE_LENGTH,
-    COMMAND_TURN_ON,
-    COMMAND_TURN_OFF,
-    CONNECTION_RETRY_INTERVAL,
-    NOTIFICATION_TIMEOUT,
-    MAX_QUEUED_STATE_AGE
-)
+import bluepy.btle
 
-_LOGGER = logging.getLogger(__name__)
+from .const import (COMMAND_TURN_OFF, COMMAND_TURN_ON,
+                   CONNECTION_RETRY_INTERVAL, CONNECTION_SEQUENCE,
+                   MAX_QUEUED_STATE_AGE, MAX_QUEUED_STATE_COUNT, NOTIFICATION_TIMEOUT, READ_STATE_UUID,
+                   SNOOZ_SERVICE_UUID, STATE_UPDATE_LENGTH, WRITE_STATE_UUID)
+
+_LOGGER = logging.getLogger()
+
 
 class SnoozeDevice():
     on = False
@@ -27,6 +19,7 @@ class SnoozeDevice():
     connected = False
 
     _running = False
+    _run_task = None
     _sleep_task = None
     _on_state_change = None
     _state_lock = None
@@ -38,12 +31,16 @@ class SnoozeDevice():
         self._sleep_lock = RLock()
 
         self.loop = loop
-
+        
         self._on_state_change = on_state_change
-        self._device = btle.Peripheral()
+        self._device = bluepy.btle.Peripheral()
 
     def stop(self):
         self._running = False
+
+        if self._run_task is not None and not self._run_task.cancelled():
+            self._run_task.cancel()
+            self._run_task = None
 
         if self.connected and self._device:
             try:
@@ -52,11 +49,11 @@ class SnoozeDevice():
                 pass
 
         self._cancel_sleep()
-    
+
     def start(self, address: str):
         self._running = True
-        self.loop.create_task(self._async_run(address))
-    
+        self._run_task = self.loop.create_task(self._async_run(address))
+
     async def _async_run(self, address: str):
         while True:
             if not self._running:
@@ -68,7 +65,7 @@ class SnoozeDevice():
                 else:
                     self._device.connect(address)
                     self._init_connection()
-            except btle.BTLEDisconnectError:
+            except bluepy.btle.BTLEDisconnectError:
                 self._on_disconnected()
             finally:
                 self._flush_queued_state()
@@ -86,7 +83,7 @@ class SnoozeDevice():
     def queue_state(self, state_writer: callable):
         with self._state_lock:
             self._queued_state.append((datetime.now(), state_writer))
-        
+
         self._cancel_sleep()
 
     def _flush_queued_state(self):
@@ -97,22 +94,24 @@ class SnoozeDevice():
                 now = datetime.now()
 
                 # remove stale jobs
-                self._queued_state = [
-                    (created, task) for (created, task) in self._queued_state 
+                queued_state = [
+                    (created, task) for (created, task) in self._queued_state
                     if (now - created).seconds <= MAX_QUEUED_STATE_AGE
-                ]
+                ][-MAX_QUEUED_STATE_COUNT:]
 
-                if len(self._queued_state) == 0:
+                if len(queued_state) == 0:
                     return
 
-                (_, task) = self._queued_state[0]
-            
+                (_, task) = queued_state[0]
+                self._queued_state = queued_state
+
             if task:
                 task()
 
             if self.connected:
                 with self._state_lock:
                     self._queued_state.pop(0)
+
     def _init_connection(self):
         self.connected = True
 
@@ -126,7 +125,7 @@ class SnoozeDevice():
 
         # load initial state
         self._update_state()
-        
+
     def _on_disconnected(self):
         was_connected = self.connected
 
@@ -144,7 +143,7 @@ class SnoozeDevice():
             # use a small timeout when we have queued jobs
             if len(self._queued_state) > 0:
                 seconds = 0.5
-        
+
         with self._sleep_lock:
             self._sleep_task = self.loop.create_task(asyncio.sleep(seconds))
         try:
@@ -153,25 +152,25 @@ class SnoozeDevice():
             pass
         with self._sleep_lock:
             self._sleep_task = None
-    
+
     def _cancel_sleep(self):
         with self._sleep_lock:
             if self._sleep_task:
                 self._sleep_task.cancel()
                 self._sleep_task = None
-    
+
     def _update_state(self):
         if self.connected and self._reader:
             try:
                 self._on_receive_state(self._reader.read())
             except:
                 self._on_disconnected()
-        
+
     def _on_receive_state(self, data: bytearray):
         # malformed or unexpected data
         if len(data) != STATE_UPDATE_LENGTH:
             return
-        
+
         on = data[1] == 0x01
         level = int(data[0] / 10)
 

@@ -39,3 +39,6 @@ NOTIFICATION_TIMEOUT = 15
 
 # maximum age for a state update job
 MAX_QUEUED_STATE_AGE = 10
+
+# maximum number of queued items
+MAX_QUEUED_STATE_COUNT = 2
