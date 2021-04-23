@@ -15,7 +15,7 @@ _LOGGER = logging.getLogger()
 
 class SnoozeDevice():
     on = False
-    level = 1
+    percentage = 0
     connected = False
 
     _running = False
@@ -172,14 +172,14 @@ class SnoozeDevice():
             return
 
         on = data[1] == 0x01
-        level = int(data[0] / 10)
+        percentage = data[0]
 
         # state not changed
-        if on == self.on and level == self.level:
+        if on == self.on and percentage == self.percentage:
             return
 
         self.on = on
-        self.level = level
+        self.percentage = percentage
 
         self._on_state_change()
 

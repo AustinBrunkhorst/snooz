@@ -93,7 +93,7 @@ class SnoozFan(FanEntity):
 
     @property
     def percentage(self) -> int:
-        return self._device.level * 10
+        return self._device.percentage
 
     @property
     def is_on(self) -> bool:
