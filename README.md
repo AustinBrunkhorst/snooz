@@ -13,9 +13,10 @@ Component to integrate with the [SNOOZ][snooz] white noise sound machine as a fa
   - Tested on Raspberry Pi 4 w/ Home Assistant **2021.4.6**
   
 ### HACS
-1. Copy `custom_components/snooz/*` to `custom_components/snooz` in your Home Assistant configuration directory
-2. Add a `fan` entry to your `configuration.yaml` with the platform `snooz` and MAC address of your SNOOZ device
-2. Restart Home Assistant
+1. Add `https://github.com/AustinBrunkhorst/snooz` as a [custom repository][hacsrepository]
+   - Alternatively copy `custom_components/snooz/*` to `custom_components/snooz` in your Home Assistant configuration directory
+3. Add a `fan` entry to your `configuration.yaml` with the platform `snooz` and MAC address of your SNOOZ device
+4. Restart Home Assistant
 
 New to HACS? [Learn more][hacsinstall]
 
@@ -64,6 +65,7 @@ key | description
 [commits]: https://github.com/custom-components/blueprint/commits/master
 [hacs]: https://github.com/custom-components/hacs
 [hacsinstall]: https://hacs.xyz/docs/installation/manual
+[hacsrepository]: https://hacs.xyz/docs/faq/custom_repositories/
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat
 [hacsfolder]: https://github.com/AustinBrunkhorst/snooz/tree/master/custom_components/snooz
 [license-shield]: https://img.shields.io/github/license/AustinBrunkhorst/snooz.svg?style=flat
