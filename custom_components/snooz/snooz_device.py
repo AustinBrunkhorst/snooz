@@ -4,14 +4,12 @@ from datetime import datetime
 from threading import RLock
 
 import bluepy.btle
+from .bluetooth_peripheral import PeripheralWithConnectTimeout
 
-from .const import (COMMAND_TURN_OFF, COMMAND_TURN_ON,
+from .const import (COMMAND_TURN_OFF, COMMAND_TURN_ON, CONNECTION_TIMEOUT,
                    CONNECTION_RETRY_INTERVAL, CONNECTION_SEQUENCE,
                    MAX_QUEUED_STATE_AGE, MAX_QUEUED_STATE_COUNT, NOTIFICATION_TIMEOUT, READ_STATE_UUID,
                    SNOOZ_SERVICE_UUID, STATE_UPDATE_LENGTH, WRITE_STATE_UUID)
-
-_LOGGER = logging.getLogger()
-
 
 class SnoozeDevice():
     on = False
@@ -33,7 +31,7 @@ class SnoozeDevice():
         self.loop = loop
         
         self._on_state_change = on_state_change
-        self._device = bluepy.btle.Peripheral()
+        self._device = PeripheralWithConnectTimeout()
 
     def stop(self):
         self._running = False
@@ -63,7 +61,7 @@ class SnoozeDevice():
                     self._flush_queued_state()
                     self._update_state()
                 else:
-                    self._device.connect(address)
+                    self._device.connect(address, timeout=CONNECTION_TIMEOUT)
                     self._init_connection()
             except bluepy.btle.BTLEDisconnectError:
                 self._on_disconnected()

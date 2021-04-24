@@ -31,6 +31,9 @@ COMMAND_TURN_ON = [0x02, 0x01]
 # bytes that turn off the snooz
 COMMAND_TURN_OFF = [0x02, 0x00]
 
+# time in seconds before timing out when attempting to connect
+CONNECTION_TIMEOUT = 5
+
 # interval to retry connecting
 CONNECTION_RETRY_INTERVAL = 5
 
@@ -41,4 +44,4 @@ NOTIFICATION_TIMEOUT = 15
 MAX_QUEUED_STATE_AGE = 10
 
 # maximum number of queued items
-MAX_QUEUED_STATE_COUNT = 2
+MAX_QUEUED_STATE_COUNT = 4
