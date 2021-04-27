@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+import threading
 from threading import RLock
 
 import bluepy.btle
@@ -11,34 +12,63 @@ from .const import (COMMAND_TURN_OFF, COMMAND_TURN_ON, CONNECTION_TIMEOUT,
                    MAX_QUEUED_STATE_AGE, MAX_QUEUED_STATE_COUNT, NOTIFICATION_TIMEOUT, READ_STATE_UUID,
                    SNOOZ_SERVICE_UUID, STATE_UPDATE_LENGTH, WRITE_STATE_UUID)
 
-class SnoozeDevice():
+_LOGGER = logging.getLogger(__name__)
+
+class SnoozDelegate(bluepy.btle.DefaultDelegate):
+    def __init__(self, callback):
+        bluepy.btle.DefaultDelegate.__init__(self)
+
+        self.callback = callback
+
+    def handleNotification(self, cHandle, data):
+        on = data[1] == 0x01
+        speed = data[0]
+        self.callback(on=on, speed=speed)
+
+class SnoozCommand():
+    def __init__(self, on: bool = None, speed = None):
+        self.on = on
+        self.speed = speed
+
+    def apply(self, device) -> None:
+
+        if self.on is not None:
+            device.set_on(self.on)
+        
+        if self.speed is not None:
+            device.set_speed(self.speed)
+
+class SnoozDevice():
     on = False
-    percentage = 0
+    speed = 1
     connected = False
 
-    _running = False
-    _run_task = None
     _sleep_task = None
-    _on_state_change = None
-    _state_lock = None
+    _stop = None
     _sleep_lock = None
-    _queued_state = []
+    _command_lock = None
+    _pending_command = None
 
-    def __init__(self, loop, on_state_change):
-        self._state_lock = RLock()
+    def __init__(self, on_state_change):
+        self._stop = threading.Event()
+        self._command_lock = RLock()
         self._sleep_lock = RLock()
 
-        self.loop = loop
-        
-        self._on_state_change = on_state_change
         self._device = PeripheralWithConnectTimeout()
 
-    def stop(self):
-        self._running = False
+        def update_state(on=None, speed=None):
+            was_changed = on is not self.on or speed is not self.speed
 
-        if self._run_task is not None and not self._run_task.cancelled():
-            self._run_task.cancel()
-            self._run_task = None
+            self.on = on
+            self.speed = speed
+
+            if was_changed:
+                on_state_change()
+
+        self._device.setDelegate(SnoozDelegate(update_state))
+
+    def stop(self):
+        self._stop.set()
 
         if self.connected and self._device:
             try:
@@ -49,66 +79,65 @@ class SnoozeDevice():
         self._cancel_sleep()
 
     def start(self, address: str):
-        self._running = True
-        self._run_task = self.loop.create_task(self._async_run(address))
+        thread = threading.Thread(target=self._run, args=[address])
+        thread.daemon = True
+        thread.start()
+
+    def _run(self, address: str):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        self.loop.run_until_complete(self._async_run(address))
+        self.loop.close()
 
     async def _async_run(self, address: str):
         while True:
-            if not self._running:
+            if self._stop.isSet():
                 return
+
             try:
                 if self.connected:
-                    self._flush_queued_state()
-                    self._update_state()
+                    self._execute_pending_command()
+                    _LOGGER.info("[waiting for notifications]")
+                    self._device.waitForNotifications(NOTIFICATION_TIMEOUT)
                 else:
+                    _LOGGER.info("[connecting]")
                     self._device.connect(address, timeout=CONNECTION_TIMEOUT)
+                    _LOGGER.info("[connected]")
                     self._init_connection()
-            except bluepy.btle.BTLEDisconnectError:
+            except Exception as e:
                 self._on_disconnected()
+
+                if not isinstance(e, bluepy.btle.BTLEDisconnectError):
+                    _LOGGER.exception("Unexpected exception in update thread")
             finally:
-                self._flush_queued_state()
+                self._execute_pending_command()
                 await self._sleep()
 
     def set_on(self, on: bool):
         self._write_state(COMMAND_TURN_ON if on else COMMAND_TURN_OFF)
 
-    def set_percentage(self, percentage: int):
-        if percentage < 0 or percentage > 100:
-            raise Exception("Invalid percentage {}".format(percentage))
+    def set_speed(self, speed: int):
+        if speed < 0 or speed > 100:
+            raise Exception("Invalid speed {}".format(speed))
 
-        self._write_state([0x01, percentage])
+        self._write_state([0x01, speed])
 
-    def queue_state(self, state_writer: callable):
-        with self._state_lock:
-            self._queued_state.append((datetime.now(), state_writer))
+    def queue_command(self, command: SnoozCommand):
+        with self._command_lock:
+            self._pending_command = command
 
         self._cancel_sleep()
 
-    def _flush_queued_state(self):
-        while self.connected:
-            task = None
+    def _execute_pending_command(self):
+        if not self.connected:
+            return
 
-            with self._state_lock:
-                now = datetime.now()
-
-                # remove stale jobs
-                queued_state = [
-                    (created, task) for (created, task) in self._queued_state
-                    if (now - created).seconds <= MAX_QUEUED_STATE_AGE
-                ][-MAX_QUEUED_STATE_COUNT:]
-
-                if len(queued_state) == 0:
-                    return
-
-                (_, task) = queued_state[0]
-                self._queued_state = queued_state
-
-            if task:
-                task()
-
-            if self.connected:
-                with self._state_lock:
-                    self._queued_state.pop(0)
+        with self._command_lock:
+            if self._pending_command is not None and self.connected:
+                self._pending_command.apply(self)
+                self._pending_command = None
+            
 
     def _init_connection(self):
         self.connected = True
@@ -121,34 +150,24 @@ class SnoozeDevice():
         for bytes in CONNECTION_SEQUENCE:
             self._write_state(bytes)
 
-        # load initial state
-        self._update_state()
+        descriptor = self._reader.getDescriptors()[0]
+        _LOGGER.info("[enable notifications]")
+        descriptor.write(b"\x01\x00", withResponse=True)
 
     def _on_disconnected(self):
-        was_connected = self.connected
-
         self.connected = False
         self._reader = None
         self._writer = None
 
-        if was_connected:
-            self._on_state_change()
-
     async def _sleep(self):
-        seconds = NOTIFICATION_TIMEOUT if self.connected else CONNECTION_RETRY_INTERVAL
-
-        with self._state_lock:
-            # use a small timeout when we have queued jobs
-            if len(self._queued_state) > 0:
-                seconds = 0.5
+        seconds = 1 if self.connected else CONNECTION_RETRY_INTERVAL
 
         with self._sleep_lock:
             self._sleep_task = self.loop.create_task(asyncio.sleep(seconds))
-        try:
-            await self._sleep_task
-        except asyncio.CancelledError:
-            pass
-        with self._sleep_lock:
+            try:
+                await self._sleep_task
+            except asyncio.CancelledError:
+                pass
             self._sleep_task = None
 
     def _cancel_sleep(self):
@@ -157,34 +176,11 @@ class SnoozeDevice():
                 self._sleep_task.cancel()
                 self._sleep_task = None
 
-    def _update_state(self):
-        if self.connected and self._reader:
-            try:
-                self._on_receive_state(self._reader.read())
-            except:
-                self._on_disconnected()
-
-    def _on_receive_state(self, data: bytearray):
-        # malformed or unexpected data
-        if len(data) != STATE_UPDATE_LENGTH:
-            return
-
-        on = data[1] == 0x01
-        percentage = data[0]
-
-        # state not changed
-        if on == self.on and percentage == self.percentage:
-            return
-
-        self.on = on
-        self.percentage = percentage
-
-        self._on_state_change()
-
     def _write_state(self, state: list):
         if self._writer == None:
             return
         try:
+            _LOGGER.info("[writing] {}".format(' '.join(map(str, state))))
             self._writer.write(bytearray(state), withResponse=True)
         except:
             self._on_disconnected()

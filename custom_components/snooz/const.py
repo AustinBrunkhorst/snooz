@@ -32,13 +32,13 @@ COMMAND_TURN_ON = [0x02, 0x01]
 COMMAND_TURN_OFF = [0x02, 0x00]
 
 # time in seconds before timing out when attempting to connect
-CONNECTION_TIMEOUT = 5
+CONNECTION_TIMEOUT = 3
 
 # interval to retry connecting
-CONNECTION_RETRY_INTERVAL = 5
+CONNECTION_RETRY_INTERVAL = 3
 
 # timeout for waiting on notifications
-NOTIFICATION_TIMEOUT = 15
+NOTIFICATION_TIMEOUT = 1
 
 # maximum age for a state update job
 MAX_QUEUED_STATE_AGE = 10

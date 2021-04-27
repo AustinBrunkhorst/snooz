@@ -12,7 +12,7 @@ from .const import (
     DOMAIN,
     CONF_ADDRESS,
 )
-from .snooz_device import SnoozeDevice
+from .snooz_device import (SnoozDevice, SnoozCommand)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     def on_state_change():
         hass.helpers.dispatcher.async_dispatcher_send(SIGNAL_STATE_UPDATED)
 
-    device = SnoozeDevice(hass.loop, on_state_change)
+    device = SnoozDevice(on_state_change)
     address = config[CONF_ADDRESS]
     name = config.get(CONF_NAME)
 
@@ -93,31 +93,18 @@ class SnoozFan(FanEntity):
 
     @property
     def percentage(self) -> int:
-        return self._device.percentage
+        return self._device.speed
 
     @property
     def is_on(self) -> bool:
         return self._device.on
 
     def turn_on(self, speed = None, percentage = None, **kwargs) -> None:
-        def write_state():
-            self._device.set_on(True)
-            if percentage != None:
-                self._set_device_percentage(percentage)
-        
-        self._device.queue_state(write_state)
+        self._device.queue_command(SnoozCommand(on=True, speed=percentage))
 
     def turn_off(self, **kwargs) -> None:
-        def write_state():
-            self._device.set_on(False)
-        
-        self._device.queue_state(write_state)
+        self._device.queue_command(SnoozCommand(on = False))
 
     def set_percentage(self, percentage: str) -> None:
-        def write_state():
-            self._set_device_percentage(percentage)
+        self._device.queue_command(SnoozCommand(speed=percentage))
 
-        self._device.queue_state(write_state)
-
-    def _set_device_percentage(self, percentage: int):
-        self._device.set_percentage(percentage)
