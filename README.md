@@ -49,9 +49,18 @@ key | description
 ## Screenshots
 ![Screenshot of home assistant showing a power toggle and fan speed dropdown][screenshot]
 
+## Frequently asked questions
+> Can I use the SNOOZ mobile app when the device is connected to Home Assistant?
+ 
+No. This is a limitation with the SNOOZ device supporting only 1 simultaneous connection.
+
 ## Feature roadmap
 - [ ] UI based integration configuration
 - [ ] Device discovery
+- [ ] Ability to toggle active/inactive state so the SNOOZ Mobile app can be used if needed
+
+## ⚠ Disclaimer ⚠
+This integration is in no way affiliated with SNOOZ. SNOOZ does not offer support for this integration, as it was built by reverse engineering communication with SNOOZ's mobile app.
 
 [snooz]: https://getsnooz.com/
 [snoozlogo]: snooz.png
