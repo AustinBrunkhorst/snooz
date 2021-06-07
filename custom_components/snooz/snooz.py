@@ -1,20 +1,53 @@
 import asyncio
+from base64 import b64decode
 import logging
-from datetime import datetime
 import threading
 from threading import RLock
 
 import bluepy.btle
-from .bluetooth_peripheral import PeripheralWithConnectTimeout
 
-from .const import (COMMAND_TURN_OFF, COMMAND_TURN_ON, CONNECTION_TIMEOUT,
-                   CONNECTION_RETRY_INTERVAL, CONNECTION_SEQUENCE,
-                   MAX_QUEUED_STATE_AGE, MAX_QUEUED_STATE_COUNT, NOTIFICATION_TIMEOUT, READ_STATE_UUID,
-                   SNOOZ_SERVICE_UUID, STATE_UPDATE_LENGTH, WRITE_STATE_UUID)
+from .peripheral import PeripheralWithTimeout
+
+# uuid of the service that controls snooz
+SNOOZ_SERVICE_UUID = "729f0608496a47fea1243a62aaa3fbc0"
+
+# uuid of the characteristic that reads snooz state
+READ_STATE_UUID = "80c37f00-cc16-11e4-8830-0800200c9a66"
+READ_STATE_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
+
+# uuid of the characteristic that writes snooz state
+WRITE_STATE_UUID = "90759319-1668-44da-9ef3-492d593bd1e5"
+
+# length in bytes of the read characteristic
+STATE_UPDATE_LENGTH = 20
+
+COMMAND_SET_TOKEN = b"\x06"
+
+# bytes that turn on the snooz
+COMMAND_TURN_ON = [0x02, 0x01]
+
+# bytes that turn off the snooz
+COMMAND_TURN_OFF = [0x02, 0x00]
+
+# timeout for connections
+CONNECTION_TIMEOUT = 10
+
+# interval to retry connecting
+CONNECTION_RETRY_INTERVAL = 3
+
+# timeout for waiting on notifications
+NOTIFICATION_TIMEOUT = 1
+
+# maximum age for a state update job
+MAX_QUEUED_STATE_AGE = 10
+
+# maximum number of queued items
+MAX_QUEUED_STATE_COUNT = 2
 
 _LOGGER = logging.getLogger(__name__)
 
-class SnoozDelegate(bluepy.btle.DefaultDelegate):
+
+class SnoozStateReaderDelegate(bluepy.btle.DefaultDelegate):
     def __init__(self, callback):
         bluepy.btle.DefaultDelegate.__init__(self)
 
@@ -22,50 +55,54 @@ class SnoozDelegate(bluepy.btle.DefaultDelegate):
 
     def handleNotification(self, cHandle, data):
         on = data[1] == 0x01
-        speed = data[0]
-        self.callback(on=on, speed=speed)
+        volume = data[0]
+        self.callback(on=on, volume=volume)
 
-class SnoozCommand():
-    def __init__(self, on: bool = None, speed = None):
+
+class SnoozCommand:
+    def __init__(self, on: bool = None, volume=None):
         self.on = on
-        self.speed = speed
+        self.volume = volume
 
     def apply(self, device) -> None:
-
         if self.on is not None:
             device.set_on(self.on)
-        
-        if self.speed is not None:
-            device.set_speed(self.speed)
 
-class SnoozDevice():
+        if self.volume is not None:
+            device.set_volume(self.volume)
+
+
+class SnoozDevice:
     on = False
-    speed = 1
+    volume = 0
     connected = False
 
+    _running = False
+    _address = None
     _sleep_task = None
     _stop = None
     _sleep_lock = None
     _command_lock = None
     _pending_command = None
 
-    def __init__(self, on_state_change):
+    def __init__(self, token: str, on_state_change):
         self._stop = threading.Event()
         self._command_lock = RLock()
         self._sleep_lock = RLock()
 
-        self._device = PeripheralWithConnectTimeout()
+        self._token = token
+        self._device = PeripheralWithTimeout()
 
-        def update_state(on=None, speed=None):
-            was_changed = on is not self.on or speed is not self.speed
+        def update_state(on=None, volume=None):
+            was_changed = on != self.on or volume != self.volume
 
             self.on = on
-            self.speed = speed
+            self.volume = volume
 
             if was_changed:
-                on_state_change()
+                on_state_change(on=on, volume=volume)
 
-        self._device.setDelegate(SnoozDelegate(update_state))
+        self._device.withDelegate(SnoozStateReaderDelegate(update_state))
 
     def stop(self):
         self._stop.set()
@@ -79,6 +116,8 @@ class SnoozDevice():
         self._cancel_sleep()
 
     def start(self, address: str):
+        self._running = True
+
         thread = threading.Thread(target=self._run, args=[address])
         thread.daemon = True
         thread.start()
@@ -91,6 +130,10 @@ class SnoozDevice():
         self.loop.close()
 
     async def _async_run(self, address: str):
+        self._address = address
+
+        _LOGGER.info(f"[starting] {self._address}")
+
         while True:
             if self._stop.isSet():
                 return
@@ -98,18 +141,16 @@ class SnoozDevice():
             try:
                 if self.connected:
                     self._execute_pending_command()
-                    _LOGGER.info("[waiting for notifications]")
                     self._device.waitForNotifications(NOTIFICATION_TIMEOUT)
                 else:
-                    _LOGGER.info("[connecting]")
+                    _LOGGER.debug(f"[connecting] {self._address}")
                     self._device.connect(address, timeout=CONNECTION_TIMEOUT)
-                    _LOGGER.info("[connected]")
+                    _LOGGER.debug(f"[connected] {self._address}")
                     self._init_connection()
             except Exception as e:
                 self._on_disconnected()
-
                 if not isinstance(e, bluepy.btle.BTLEDisconnectError):
-                    _LOGGER.exception("Unexpected exception in update thread")
+                    _LOGGER.exception("Exception occurred")
             finally:
                 self._execute_pending_command()
                 await self._sleep()
@@ -117,11 +158,11 @@ class SnoozDevice():
     def set_on(self, on: bool):
         self._write_state(COMMAND_TURN_ON if on else COMMAND_TURN_OFF)
 
-    def set_speed(self, speed: int):
-        if speed < 0 or speed > 100:
-            raise Exception("Invalid speed {}".format(speed))
+    def set_volume(self, volume: int):
+        if volume < 0 or volume > 100:
+            raise Exception(f"Invalid volume {volume}")
 
-        self._write_state([0x01, speed])
+        self._write_state([0x01, volume])
 
     def queue_command(self, command: SnoozCommand):
         with self._command_lock:
@@ -137,7 +178,6 @@ class SnoozDevice():
             if self._pending_command is not None and self.connected:
                 self._pending_command.apply(self)
                 self._pending_command = None
-            
 
     def _init_connection(self):
         self.connected = True
@@ -147,20 +187,22 @@ class SnoozDevice():
         self._reader = service.getCharacteristics(READ_STATE_UUID)[0]
         self._writer = service.getCharacteristics(WRITE_STATE_UUID)[0]
 
-        for bytes in CONNECTION_SEQUENCE:
-            self._write_state(bytes)
+        stateDescriptor = self._reader.getDescriptors()[0]
+        stateDescriptor.write(b"\x01\x00", True)
 
-        descriptor = self._reader.getDescriptors()[0]
-        _LOGGER.info("[enable notifications]")
-        descriptor.write(b"\x01\x00", withResponse=True)
+        _LOGGER.debug(f"[set token] {self._address} {self._token}")
+        self._writer.write(
+            COMMAND_SET_TOKEN + b64decode(self._token), withResponse=True
+        )
 
     def _on_disconnected(self):
+        _LOGGER.debug(f"[disconnected] {self._address}")
         self.connected = False
         self._reader = None
         self._writer = None
 
     async def _sleep(self):
-        seconds = 1 if self.connected else CONNECTION_RETRY_INTERVAL
+        seconds = 0 if self.connected else CONNECTION_RETRY_INTERVAL
 
         with self._sleep_lock:
             self._sleep_task = self.loop.create_task(asyncio.sleep(seconds))
@@ -180,7 +222,6 @@ class SnoozDevice():
         if self._writer == None:
             return
         try:
-            _LOGGER.info("[writing] {}".format(' '.join(map(str, state))))
             self._writer.write(bytearray(state), withResponse=True)
         except:
             self._on_disconnected()

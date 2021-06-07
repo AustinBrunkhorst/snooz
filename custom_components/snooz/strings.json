@@ -1,0 +1,22 @@
+{
+    "config": {
+        "abort": {
+            "no_devices_found": "No SNOOZ devices discovered. Make sure your device is within range and in pairing mode.\n\n### How to enter pairing mode\n1. Unplug SNOOZ and let sit for 5 seconds.\n2. Plug SNOOZ back in.\n3. Confirm no other phones are trying to connect to the device.\n4. With one finger, press and hold the power button on SNOOZ. Release when the lights start blinking (approximately 5 seconds).",
+            "btle_not_available": "Unable to discover SNOOZ devices. Make sure your Home Assistant host supports Bluetooth LE scanning."
+        },
+        "step": {
+            "user": {
+                "title": "SNOOZ discovered",
+                "description": "Which device would you like to add?",
+                "data": {
+                    "id": "Device"
+                }
+            },
+            "confirm_default_device": {
+                "title": "SNOOZ discovered",
+                "description": "{name} ({address}) was discovered. Would you like to add it?"
+            }
+        }
+    },
+    "title": "SNOOZ Noise Maker"
+}

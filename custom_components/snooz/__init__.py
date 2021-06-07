@@ -11,10 +11,16 @@ from .const import DOMAIN
 PLATFORMS = ["fan"]
 
 
+async def async_setup(hass: HomeAssistant, config: dict):
+    """Initialize basic config of SNOOZ component."""
+    hass.data[DOMAIN] = {}
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SNOOZ Noise Maker from a config entry."""
-    # TODO Store an API object for your platforms to access
-    # hass.data[DOMAIN][entry.entry_id] = MyApi(...)
+
+    hass.data[DOMAIN][entry.entry_id] = {}
 
     for platform in PLATFORMS:
         hass.async_create_task(

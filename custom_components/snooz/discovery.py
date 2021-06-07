@@ -1,10 +1,22 @@
-from bluepy.btle import Scanner, DefaultDelegate, ScanEntry
+from base64 import b64encode
+import logging
+from typing import List
+
+from bluepy.btle import BTLEManagementError, DefaultDelegate, ScanEntry, Scanner
+
+from homeassistant.helpers.device_registry import format_mac
+
+from .errors import BluetoothManagementNotAvailable
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DiscoveredSnooz:
-    name = None
-    token = None
-    device = None
+    def __init__(self, name: str, token: str, device: ScanEntry):
+        self.name: str = name
+        self.token: str = token
+        self.address: str = device.addr
+        self.id = format_mac(self.address)
 
 
 class SnoozDiscoverer(DefaultDelegate):
@@ -13,7 +25,7 @@ class SnoozDiscoverer(DefaultDelegate):
     def __init__(self):
         DefaultDelegate.__init__(self)
 
-    def handleDiscovery(self, device, isNew, isData):
+    def handleDiscovery(self, device: ScanEntry, isNew: bool, isData: bool):
         if not isNew:
             return
 
@@ -29,20 +41,30 @@ class SnoozDiscoverer(DefaultDelegate):
             return
 
         if advertisement[:3] == b"\xFF\xFF\x08":
-            print("{} is not in discovery mode.".format(device_name))
+            _LOGGER.warning(
+                f"Discovered {device_name} ({device.addr}) but it is not in pairing mode."
+            )
             return
 
-        token = advertisement[3:]
+        token = b64encode(advertisement[3:]).decode("UTF-8")
 
         snooz_device = DiscoveredSnooz(device_name, token, device)
 
         self.devices.append(snooz_device)
 
 
-def discover():
-    discoverer = SnoozDiscoverer()
+def discover_snooz_devices() -> List[DiscoveredSnooz]:
+    try:
+        discoverer = SnoozDiscoverer()
 
-    scanner = Scanner().withDelegate(discoverer)
-    scanner.scan(5.0)
+        scanner = Scanner().withDelegate(discoverer)
+        scanner.scan(5.0)
 
-    return discoverer.devices
+        return discoverer.devices
+    except BTLEManagementError as e:
+        if "Management not available" in e.message:
+            raise BluetoothManagementNotAvailable()
+    except:
+        _LOGGER.exception("Unable to discover SNOOZ devices")
+
+        return []
