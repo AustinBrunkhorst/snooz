@@ -13,36 +13,12 @@ Component to integrate with the [SNOOZ][snooz] white noise sound machine as a fa
   - Tested on Raspberry Pi 4 w/ Home Assistant **2021.4.6**
   
 ### HACS
-1. Add `https://github.com/AustinBrunkhorst/snooz` as a [custom repository][hacsrepository]
-   - Alternatively copy `custom_components/snooz/*` to `custom_components/snooz` in your Home Assistant configuration directory
-3. Add a `fan` entry to your `configuration.yaml` with the platform `snooz` and MAC address of your SNOOZ device
-4. Restart Home Assistant
+1. Add `https://github.com/AustinBrunkhorst/snooz` as a [custom repository][hacsrepository].
+   - Alternatively copy `custom_components/snooz/*` to `custom_components/snooz` in your Home Assistant configuration directory.
+2. Put your SNOOZ device in pairing mode.
+3. Add the "SNOOZ Noise Maker" integration. Your device should be discovered automatically.
 
 New to HACS? [Learn more][hacsinstall]
-
-### Snooz MAC Address
-SNOOZ broadcasts on bluetooth with the name `Snooz-FFFF` where `FFFF` is the last 2 bytes in its MAC address. 
-
-- You should be able to inspect the full address once you connect to it on Android or iOS (via the Bluetooth Devices system menu).
-- If you are adventurous, the linux command [bluetoothctl][bluetoothctl] can be used to find a deviced similar to `Snooz-FFFF`.
-
-***Note**: Two devices are broadcasted under a name like `Snooz-FFFF`. One of them does not work properly, so you may need to try both.*
-
-## Configuration
-
-### Example configuration.yaml
-```yaml
-fan:
-  - platform: snooz
-    address: AA:BB:CC:DD:EE:FF
-    name: My Snooz
-```
-
-### Options
-key | description
-:--- | :---
-**address (Required)** | Bluetooth MAC address of the SNOOZ device
-**name (Optional)** | Custom name for the fan entity. Defaults to `Snooz {id}` where `id` is the last 2 bytes in the `address` option
 
 [![Gift a coffee][giftacoffeebadgeblue]][giftacoffee]
 
@@ -50,14 +26,19 @@ key | description
 ![Screenshot of home assistant showing a power toggle and fan speed dropdown][screenshot]
 
 ## Frequently asked questions
-> Can I use the SNOOZ mobile app when the device is connected to Home Assistant?
- 
-No. This is a limitation with the SNOOZ device supporting only 1 simultaneous connection.
+> How do I enter pairing mode?
+1. Unplug SNOOZ and let sit for 5 seconds.
+2. Plug SNOOZ back in.
+3. Confirm no other phones are trying to connect to the device.
+4. With one finger, press and hold the power button on SNOOZ. Release when the lights start blinking (approximately 5 seconds).
 
-## Feature roadmap
-- [ ] UI based integration configuration
-- [ ] Device discovery
-- [ ] Ability to toggle active/inactive state so the SNOOZ Mobile app can be used if needed
+> My device isn't discovered on the integration setup
+
+Make sure the SNOOZ device is in pairing mode and within Bluetooth range of the host device running Home Assistant.
+
+> Can I use the SNOOZ mobile app when the device is connected to Home Assistant?
+
+No. This is a limitation with the SNOOZ device supporting only 1 simultaneous connection.
 
 ## ⚠ Disclaimer ⚠
 This integration is in no way affiliated with SNOOZ. SNOOZ does not offer support for this integration, as it was built by reverse engineering communication with SNOOZ's mobile app.
