@@ -2,6 +2,7 @@
   "domain": "snooz",
   "name": "SNOOZ Noise Maker",
   "config_flow": true,
+  "version": "0.0.1",
   "documentation": "https://github.com/AustinBrunkhorst/snooz",
   "requirements": [
     "bluepy==1.3.0"
