@@ -2,7 +2,7 @@ import asyncio
 from base64 import b64decode
 import logging
 import threading
-from threading import RLock
+from threading import Event, RLock
 
 import bluepy.btle
 
@@ -38,12 +38,6 @@ CONNECTION_RETRY_INTERVAL = 3
 # timeout for waiting on notifications
 NOTIFICATION_TIMEOUT = 1
 
-# maximum age for a state update job
-MAX_QUEUED_STATE_AGE = 10
-
-# maximum number of queued items
-MAX_QUEUED_STATE_COUNT = 2
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -75,21 +69,22 @@ class SnoozCommand:
 class SnoozDevice:
     on = False
     volume = 0
-    connected = False
+    connected: Event
 
-    _running = False
-    _address = None
-    _sleep_task = None
-    _stop = None
-    _sleep_lock = None
-    _command_lock = None
-    _pending_command = None
+    _sleep_task: asyncio.Task = None
+    _stop: Event = None
+    _sleep_lock: RLock = None
+    _device_lock: RLock = None
+    _command_lock: RLock = None
+    _pending_command: SnoozCommand = None
 
-    def __init__(self, token: str, on_state_change):
+    def __init__(self, address: str, token: str, on_state_change):
+        self.connected = threading.Event()
         self._stop = threading.Event()
         self._command_lock = RLock()
         self._sleep_lock = RLock()
 
+        self._address = address
         self._token = token
         self._device = PeripheralWithTimeout()
 
@@ -102,49 +97,46 @@ class SnoozDevice:
             if was_changed:
                 on_state_change(on=on, volume=volume)
 
-        self._device.withDelegate(SnoozStateReaderDelegate(update_state))
+        self._device_update_handler = SnoozStateReaderDelegate(update_state)
 
     def stop(self):
         self._stop.set()
+        self._cancel_sleep()
 
-        if self.connected and self._device:
+        if self.connected.is_set() and self._device:
             try:
                 self._device.disconnect()
             except:
                 pass
+            finally:
+                self.connected.clear()
 
-        self._cancel_sleep()
+    def start(self):
+        self._stop.clear()
 
-    def start(self, address: str):
-        self._running = True
+        update_thread = threading.Thread(
+            target=self._run, name=f"SnoozDevice-{self._address}", daemon=True
+        )
+        update_thread.start()
 
-        thread = threading.Thread(target=self._run, args=[address])
-        thread.daemon = True
-        thread.start()
-
-    def _run(self, address: str):
+    def _run(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
-        self.loop.run_until_complete(self._async_run(address))
+        self.loop.run_until_complete(self._async_update_loop())
         self.loop.close()
 
-    async def _async_run(self, address: str):
-        self._address = address
+    async def _async_update_loop(self):
+        _LOGGER.debug(f"[running] {self._address}")
 
-        _LOGGER.info(f"[starting] {self._address}")
-
-        while True:
-            if self._stop.isSet():
-                return
-
+        while not self._stop.is_set():
             try:
-                if self.connected:
+                if self.connected.is_set():
                     self._execute_pending_command()
                     self._device.waitForNotifications(NOTIFICATION_TIMEOUT)
                 else:
                     _LOGGER.debug(f"[connecting] {self._address}")
-                    self._device.connect(address, timeout=CONNECTION_TIMEOUT)
+                    self._device.connect(self._address, timeout=CONNECTION_TIMEOUT)
                     _LOGGER.debug(f"[connected] {self._address}")
                     self._init_connection()
             except Exception as e:
@@ -171,16 +163,18 @@ class SnoozDevice:
         self._cancel_sleep()
 
     def _execute_pending_command(self):
-        if not self.connected:
+        if not self.connected.is_set():
             return
 
         with self._command_lock:
-            if self._pending_command is not None and self.connected:
+            if self._pending_command is not None and self.connected.is_set():
                 self._pending_command.apply(self)
                 self._pending_command = None
 
     def _init_connection(self):
-        self.connected = True
+        self.connected.set()
+
+        self._device.withDelegate(self._device_update_handler)
 
         service = self._device.getServiceByUUID(SNOOZ_SERVICE_UUID)
 
@@ -197,19 +191,20 @@ class SnoozDevice:
 
     def _on_disconnected(self):
         _LOGGER.debug(f"[disconnected] {self._address}")
-        self.connected = False
+        self.connected.clear()
         self._reader = None
         self._writer = None
 
     async def _sleep(self):
-        seconds = 0 if self.connected else CONNECTION_RETRY_INTERVAL
+        seconds = 0 if self.connected.is_set() else CONNECTION_RETRY_INTERVAL
 
         with self._sleep_lock:
             self._sleep_task = self.loop.create_task(asyncio.sleep(seconds))
-            try:
-                await self._sleep_task
-            except asyncio.CancelledError:
-                pass
+        try:
+            await self._sleep_task
+        except asyncio.CancelledError:
+            pass
+        with self._sleep_lock:
             self._sleep_task = None
 
     def _cancel_sleep(self):

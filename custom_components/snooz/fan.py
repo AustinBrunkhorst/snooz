@@ -22,14 +22,17 @@ async def async_setup_entry(
     address: str = entry.data[CONF_ADDRESS]
     token: str = entry.data[CONF_TOKEN]
 
-    def on_state_change(on, volume):
-        hass.helpers.dispatcher.async_dispatcher_send(device_update_signal(address))
+    def on_state_change(on: bool, volume: int):
+        def dispatch_update():
+            hass.helpers.dispatcher.async_dispatcher_send(device_update_signal(address))
 
-    device = SnoozDevice(token, on_state_change)
+        hass.loop.call_soon_threadsafe(dispatch_update)
+
+    device = SnoozDevice(address, token, on_state_change)
 
     @callback
     def async_start(_):
-        hass.async_add_job(device.start, address)
+        hass.async_add_job(device.start)
 
     @callback
     def async_stop(_):
@@ -64,13 +67,13 @@ class SnoozFan(FanEntity):
         self._device = device
 
     @callback
-    async def on_updated(self):
+    async def on_device_state_changed(self):
         self.async_write_ha_state()
 
     async def async_added_to_hass(self):
         self.async_on_remove(
             self.hass.helpers.dispatcher.async_dispatcher_connect(
-                device_update_signal(self._address), self.on_updated
+                device_update_signal(self._address), self.on_device_state_changed
             )
         )
 
