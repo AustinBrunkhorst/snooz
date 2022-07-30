@@ -10,7 +10,6 @@ from .const import DOMAIN
 from .discovery import DiscoveredSnooz, discover_snooz_devices
 from .errors import BluetoothManagementNotAvailable
 
-
 class SnoozConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle SNOOZ config flow."""
 
@@ -21,7 +20,7 @@ class SnoozConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self.discovered_devices: dict[str, DiscoveredSnooz] | None = None
 
-    async def async_step_user(self, user_input: dict | None = None) -> dict:
+    async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
 
         if (
@@ -36,7 +35,7 @@ class SnoozConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.create_device_entry(device)
 
         try:
-            devices = discover_snooz_devices()
+            devices = await discover_snooz_devices()
         except BluetoothManagementNotAvailable:
             return self.async_abort(reason="btle_not_available")
 
@@ -46,6 +45,7 @@ class SnoozConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 device for device in devices if device.id not in already_configured
             ]
             self.discovered_devices = {device.id: device for device in devices}
+
 
         # no devices found
         if not self.discovered_devices:
@@ -73,7 +73,7 @@ class SnoozConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             return self.create_device_entry(default_device)
-
+            
         self._set_confirm_only()
 
         return self.async_show_form(
@@ -84,16 +84,16 @@ class SnoozConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    def create_device_entry(self, device: DiscoveredSnooz) -> dict:
+    def create_device_entry(self, device):
         return self.async_create_entry(
             title=device.name,
             data={
-                CONF_NAME: device.name,
-                CONF_ADDRESS: device.address,
-                CONF_TOKEN: device.token,
+                "name": device.name,
+                "address": device.address,
+                "token": device.token,
             },
         )
 
     @property
-    def default_discovered_device(self) -> DiscoveredSnooz:
+    def default_discovered_device(self):
         return list(self.discovered_devices.values())[0]

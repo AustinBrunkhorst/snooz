@@ -1,5 +1,6 @@
 """Support for Snooz noise maker"""
 
+import logging
 from homeassistant.components.fan import DOMAIN, SUPPORT_SET_SPEED, FanEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -12,15 +13,14 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
-from .snooz import SnoozCommand, SnoozDevice
-
+from .snooz import SnoozDevice
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ):
-    name: str = entry.data[CONF_NAME]
-    address: str = entry.data[CONF_ADDRESS]
-    token: str = entry.data[CONF_TOKEN]
+    name: str = entry.data["name"]
+    address: str = entry.data["address"]
+    token: str = entry.data["token"]
 
     def on_state_change(on: bool, volume: int):
         def dispatch_update():
@@ -58,7 +58,6 @@ async def async_setup_entry(
 
     return True
 
-
 class SnoozFan(FanEntity):
     def __init__(self, hass, name, address, device: SnoozDevice) -> None:
         self.hass = hass
@@ -86,7 +85,7 @@ class SnoozFan(FanEntity):
             "identifiers": {(DOMAIN, self._address)},
             "name": self.name,
             "manufacturer": "SNOOZ, INC.",
-            "model": "SNOOZ White Noise Sound Machine",
+            "model": "SNOOZ White Noise Machine",
         }
 
     @property
@@ -121,14 +120,14 @@ class SnoozFan(FanEntity):
     def is_on(self) -> bool:
         return self._device.on
 
-    def turn_on(self, speed=None, percentage=None, **kwargs) -> None:
-        self._device.queue_command(SnoozCommand(on=True, volume=speed))
+    async def async_turn_on(self, speed=None, percentage=None, **kwargs) -> None:
+        await self._device.handle_command(on=True, volume=speed)
 
-    def turn_off(self, **kwargs) -> None:
-        self._device.queue_command(SnoozCommand(on=False))
+    async def async_turn_off(self, **kwargs) -> None:
+        await self._device.handle_command(on=False)
 
-    def set_percentage(self, percentage: str) -> None:
-        self._device.queue_command(SnoozCommand(volume=percentage))
+    async def async_set_percentage(self, percentage: int) -> None:
+        await self._device.handle_command(volume=percentage)
 
 
 def device_update_signal(id: str) -> str:

@@ -1,17 +1,11 @@
 {
-  "domain": "snooz",
-  "name": "SNOOZ Noise Maker",
-  "config_flow": true,
-  "version": "0.0.2",
-  "documentation": "https://github.com/AustinBrunkhorst/snooz",
-  "requirements": [
-    "bluepy==1.3.0"
-  ],
-  "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [],
-  "codeowners": [
-    "@AustinBrunkhorst"
-  ]
+    "domain": "snooz",
+    "name": "Snooz White Noise Machine",
+    "config_flow": true,
+    "requirements": ["bleak==0.14.0"],
+    "version": "0.1.0",
+    "ssdp": [],
+    "zeroconf": [],
+    "homekit": {},
+    "dependencies": []
 }
