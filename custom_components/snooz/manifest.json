@@ -1,17 +1,17 @@
 {
   "domain": "snooz",
-  "name": "SNOOZ Noise Maker",
+  "name": "SNOOZ",
   "config_flow": true,
-  "version": "0.0.2",
+  "version": "0.1.0",
   "documentation": "https://github.com/AustinBrunkhorst/snooz",
-  "requirements": [
-    "bluepy==1.3.0"
-  ],
-  "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [],
+  "requirements": ["pysnooz==0.7.1"],
+  "dependencies": ["bluetooth"],
   "codeowners": [
     "@AustinBrunkhorst"
-  ]
+  ],
+  "bluetooth": [
+    { "local_name": "Snooz*" },
+    { "service_uuid": "729f0608-496a-47fe-a124-3a62aaa3fbc0" }
+  ],
+  "iot_class": "local_push"
 }

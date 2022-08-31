@@ -1,22 +1,27 @@
 {
     "config": {
         "abort": {
-            "no_devices_found": "No SNOOZ devices discovered. Make sure your device is within range and in pairing mode.\n\n### How to enter pairing mode\n1. Unplug SNOOZ and let sit for 5 seconds.\n2. Plug SNOOZ back in.\n3. Confirm no other phones are trying to connect to the device.\n4. With one finger, press and hold the power button on SNOOZ. Release when the lights start blinking (approximately 5 seconds).",
-            "btle_not_available": "Unable to discover SNOOZ devices. Make sure your Home Assistant host supports Bluetooth LE scanning."
+            "already_configured": "Device is already configured",
+            "already_in_progress": "Configuration flow is already in progress",
+            "no_devices_found": "No SNOOZ devices discovered."
         },
+        "flow_title": "{name}",
         "step": {
-            "user": {
-                "title": "SNOOZ discovered",
-                "description": "Which device would you like to add?",
-                "data": {
-                    "id": "Device"
-                }
+            "bluetooth_confirm": {
+                "description": "Do you want to setup {name}?"
             },
-            "confirm_default_device": {
-                "title": "SNOOZ discovered",
-                "description": "{name} ({address}) was discovered. Would you like to add it?"
+            "pairing_timeout": {
+                "description": "The device did not enter pairing mode. Click Submit to try again.\n\n### Troubleshooting\n1. Check that the device isn't connected to the mobile app.\n2. Unplug the device for 5 seconds, then plug it back in."
+            },
+            "user": {
+                "data": {
+                    "address": "Device"
+                },
+                "description": "Choose a device to setup"
             }
+        },
+        "progress": {
+            "wait_for_pairing_mode": "To complete setup, put this device in pairing mode.\n\n### How to enter pairing mode\n1. Force quit SNOOZ mobile apps.\n2. Press and hold the power button on the device.\n3. Release when the lights start blinking (approximately 5 seconds)."
         }
-    },
-    "title": "SNOOZ Noise Maker"
+    }
 }

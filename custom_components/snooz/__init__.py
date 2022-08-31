@@ -1,46 +1,59 @@
 """The SNOOZ Noise Maker integration."""
 from __future__ import annotations
 
-import asyncio
+import logging
 
+from custom_components.snooz.const import DOMAIN
+from custom_components.snooz.models import SnoozConfigurationData
+from homeassistant.components.bluetooth import (BluetoothScanningMode,
+                                                async_ble_device_from_address)
+from homeassistant.components.bluetooth.passive_update_processor import \
+    PassiveBluetoothProcessorCoordinator
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_ADDRESS, CONF_TOKEN, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
+from pysnooz.device import SnoozDevice
 
-from .const import DOMAIN
+PLATFORMS: list[Platform] = [Platform.FAN, Platform.SENSOR]
 
-PLATFORMS = ["fan"]
-
-
-async def async_setup(hass: HomeAssistant, config: dict):
-    """Initialize basic config of SNOOZ component."""
-    hass.data[DOMAIN] = {}
-    return True
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up SNOOZ Noise Maker from a config entry."""
+    """Set up SNOOZ device from a config entry."""
+    address = entry.data.get(CONF_ADDRESS)
+    assert address
+    
+    token = entry.data.get(CONF_TOKEN)
+    assert token
 
-    hass.data[DOMAIN][entry.entry_id] = {}
-
-    for platform in PLATFORMS:
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, platform)
+    if not (ble_device := async_ble_device_from_address(hass, address.upper())):
+        raise ConfigEntryNotReady(
+            f"Could not find SNOOZ with address {address}. Try power cycling the device."
         )
+
+    coordinator = PassiveBluetoothProcessorCoordinator(
+        hass, _LOGGER, address=address, mode=BluetoothScanningMode.ACTIVE
+    )
+    
+    device = SnoozDevice(ble_device, token, hass.loop)
+
+    hass.data.setdefault(DOMAIN, {})[
+        entry.entry_id
+    ] = SnoozConfigurationData(ble_device, device, coordinator)
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(coordinator.async_start())
 
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    unload_ok = all(
-        await asyncio.gather(
-            *[
-                hass.config_entries.async_forward_entry_unload(entry, platform)
-                for platform in PLATFORMS
-            ]
-        )
-    )
-    if unload_ok:
+    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
+        if not hass.config_entries.async_entries(DOMAIN):
+            hass.data.pop(DOMAIN)
 
     return unload_ok
