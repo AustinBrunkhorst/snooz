@@ -1,31 +1,60 @@
-# ![SNOOZ logo][snoozlogo] for Home Assistant
-[![License][license-shield]](LICENSE)
-[![Home Assistant Component Store][hacsbadge]][hacs]
-[![Gift a coffee][giftacoffeebadge]][giftacoffee]
+<p align="center">
+  <img src="header.svg" alt="Home Assistant + SNOOZ" />
+</p>
 
-Component to integrate with the [SNOOZ][snooz] white noise sound machine as a fan entity on Home Assistant.
-
-![Image of a SNOOZ device][snoozdevice]
+Custom Home Assistant component for [SNOOZ][snooz] white noise sound machine.
 
 ## Installation
 ### Requirements
-[Home Assistant][homeassistant] host that supports Bluetooth Low Energy
-  - Tested on Raspberry Pi 4 w/ Home Assistant **2021.4.6**
+- [Home Assistant][homeassistant] **2022.8+**
+- [Bluetooth Component][bluetooth_component]
   
 ### HACS
 1. Add `https://github.com/AustinBrunkhorst/snooz` as a [custom repository][hacsrepository].
    - Alternatively copy `custom_components/snooz/*` to `custom_components/snooz` in your Home Assistant configuration directory.
-2. Put your SNOOZ device in pairing mode.
-3. Add the "SNOOZ Noise Maker" integration. Your device should be discovered automatically.
+2. Ensure your SNOOZ device is within range of your Home Assistant host hardware.
+3. Add the **SNOOZ** integration in *Settings > Devices & Services*
+4. Select a device to setup
+5. Enter the device in pairing mode to complete the setup
 
 New to HACS? [Learn more][hacsinstall]
 
 [![Gift a coffee][giftacoffeebadgeblue]][giftacoffee]
 
-## Screenshots
-![Screenshot of home assistant showing a power toggle and fan speed dropdown][screenshot]
+## Fan
+SNOOZ devices are exposed as fan entities and support the following services:
+- `fan.turn_on`
+- `fan.turn_off`
+- `fan.set_percentage`
 
-## Frequently asked questions
+## Sensor
+### `sensor.connection_status`
+The bluetooth connection status of the device.
+- connected
+- disconnected
+- connecting
+
+### `sensor.signal_strength`
+The bluetooth RSSI signal strength of the device.
+
+## Services
+### `snooz.turn_on`
+Power on the device. Optionally transition the volume over time.
+|          |          |                                                     |
+|----------|----------|-----------------------------------------------------|
+| volume   | optional | Volume to set before turning on                     |    
+| duration | optional | Duration in seconds to transition to the new volume |
+
+### `snooz.turn_off`
+Power off the device. Optionally transition the volume over time.
+|          |          |                                                     |
+|----------|----------|-----------------------------------------------------|
+| duration | optional | Duration in seconds to transition to the new volume |
+
+### `snooz.disconnect`
+Terminate any connections to this device.
+
+## Troubleshooting
 > How do I enter pairing mode?
 1. Unplug SNOOZ and let sit for 5 seconds.
 2. Plug SNOOZ back in.
@@ -47,7 +76,6 @@ This integration is in no way affiliated with SNOOZ. SNOOZ does not offer suppor
 [snoozlogo]: snooz.png
 [snoozdevice]: device.jpg
 [homeassistant]: https://www.home-assistant.io/
-[screenshot]: screenshot.png
 [giftacoffee]: https://www.buymeacoffee.com/abrunkhorst
 [giftacoffeebadge]: https://img.shields.io/badge/Gift%20a%20coffee-green.svg?style=flat
 [giftacoffeebadgeblue]: https://img.shields.io/badge/Gift%20a%20coffee-blue.svg?style=for-the-badge
@@ -60,3 +88,4 @@ This integration is in no way affiliated with SNOOZ. SNOOZ does not offer suppor
 [hacsfolder]: https://github.com/AustinBrunkhorst/snooz/tree/master/custom_components/snooz
 [license-shield]: https://img.shields.io/github/license/AustinBrunkhorst/snooz.svg?style=flat
 [bluetoothctl]: https://www.linux-magazine.com/Issues/2017/197/Command-Line-bluetoothctl
+[bluetooth_component]: https://www.home-assistant.io/components/bluetooth/
