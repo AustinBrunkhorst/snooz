@@ -14,6 +14,7 @@ from homeassistant.const import CONF_ADDRESS, CONF_TOKEN, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from pysnooz.device import SnoozDevice
+from pysnooz.advertisement import SnoozAdvertisementData
 
 PLATFORMS: list[Platform] = [Platform.FAN, Platform.SENSOR]
 
@@ -33,8 +34,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             f"Could not find SNOOZ with address {address}. Try power cycling the device."
         )
 
+    data = SnoozAdvertisementData()
     coordinator = PassiveBluetoothProcessorCoordinator(
-        hass, _LOGGER, address=address, mode=BluetoothScanningMode.ACTIVE
+        hass, _LOGGER, address=address, mode=BluetoothScanningMode.ACTIVE, update_method=data.update
     )
     
     device = SnoozDevice(ble_device, token, hass.loop)

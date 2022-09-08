@@ -6,7 +6,6 @@ from typing import Optional, Union
 
 from custom_components.snooz.const import DOMAIN
 from custom_components.snooz.models import SnoozConfigurationData
-from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.components.bluetooth.passive_update_processor import (
     PassiveBluetoothDataProcessor, PassiveBluetoothDataUpdate,
     PassiveBluetoothEntityKey, PassiveBluetoothProcessorEntity)
@@ -19,7 +18,6 @@ from homeassistant.const import (ATTR_MANUFACTURER, ATTR_MODEL, ATTR_NAME,
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from pysnooz.advertisement import SnoozAdvertisementData
 from pysnooz.device import SnoozDevice
 from sensor_state_data import (DeviceClass, DeviceKey, SensorDeviceInfo,
                                SensorUpdate, Units)
@@ -83,17 +81,6 @@ def sensor_update_to_bluetooth_data_update(
             for device_key, sensor_values in sensor_update.entity_values.items()
         },
     )
-    
-def process_service_info(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    data: SnoozAdvertisementData,
-    service_info: BluetoothServiceInfoBleak,
-) -> PassiveBluetoothDataUpdate:
-    """Process a BluetoothServiceInfoBleak, running side effects and returning sensor data."""
-    update = data.update(service_info)
-
-    return sensor_update_to_bluetooth_data_update(update)
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -102,9 +89,8 @@ async def async_setup_entry(
 ) -> None:
     """Set up the SNOOZ device sensors."""
     config_data: SnoozConfigurationData = hass.data[DOMAIN][entry.entry_id]
-    data = SnoozAdvertisementData()
     processor = PassiveBluetoothDataProcessor(
-        lambda service_info: process_service_info(hass, entry, data, service_info)
+        update_method=sensor_update_to_bluetooth_data_update
     )
     async_add_entities([
         SnoozConnectionStatusSensorEntity(config_data.device),
