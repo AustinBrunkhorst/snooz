@@ -2,7 +2,7 @@
   "domain": "snooz",
   "name": "SNOOZ",
   "config_flow": true,
-  "version": "0.1.4",
+  "version": "0.2.0",
   "documentation": "https://github.com/AustinBrunkhorst/snooz",
   "requirements": ["pysnooz==0.8.3"],
   "dependencies": ["bluetooth"],
