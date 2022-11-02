@@ -1,3 +1,6 @@
+> **Note**
+> Snooz is now available as a [core integration](https://www.home-assistant.io/integrations/snooz/) in Home Assistant 2022.11+. This custom component will no longer be maintained.
+
 <p align="center">
   <img src="header.svg" alt="Home Assistant + SNOOZ" />
 </p>
